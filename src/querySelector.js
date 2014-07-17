@@ -8,6 +8,37 @@
   var HTMLCollection = scope.wrappers.HTMLCollection;
   var NodeList = scope.wrappers.NodeList;
 
+  var documentQuerySelector = document.querySelector;
+  var elementQuerySelector = document.documentElement.querySelector;
+
+  var documentQuerySelectorAll = document.querySelectorAll;
+  var elementQuerySelectorAll = document.documentElement.querySelectorAll;
+
+  var documentGetElementsByTagName = document.getElementsByTagName;
+  var elementGetElementsByTagName = document.documentElement.getElementsByTagName;
+
+  var documentGetElementsByTagNameNS = document.getElementsByTagNameNS;
+  var elementGetElementsByTagNameNS = document.documentElement.getElementsByTagNameNS;
+
+  var OriginalElement = window.Element;
+  var OriginalDocument = window.HTMLDocument;
+
+  function filterNodeList(list) {
+    if (list == null)
+      return list;
+    var wrapperList = new NodeList();
+    var wrappedItem = null;
+    var index = 0;
+    for (var i = 0, length = list.length; i < length; i++) {
+      wrappedItem = wrap(list[i]);
+      if (!wrappedItem.treeScope_ || wrappedItem.treeScope_.parent === null) {
+        wrapperList[index++] = wrappedItem;
+      }
+    }
+    wrapperList.length = index;
+    return wrapperList;
+  }
+
   function findOne(node, selector) {
     var m, el = node.firstElementChild;
     while (el) {
@@ -66,15 +97,36 @@
 
   var SelectorsInterface = {
     querySelector: function(selector) {
+      var target = this.impl || this;
+      if (target instanceof OriginalElement) {
+        return wrap(elementQuerySelector.call(target, selector));
+      } else if (target instanceof OriginalDocument) {
+        return wrap(documentQuerySelector.call(target, selector));
+      }
+
       return findOne(this, selector);
     },
     querySelectorAll: function(selector) {
+      var target = this.impl || this;
+      if (target instanceof OriginalElement) {
+        return filterNodeList(elementQuerySelectorAll.call(target, selector));
+      } else if (target instanceof OriginalDocument) {
+        return filterNodeList(documentQuerySelectorAll.call(target, selector));
+      }
+
       return findElements(this, new NodeList(), matchesSelector, selector);
     }
   };
 
   var GetElementsByInterface = {
     getElementsByTagName: function(localName) {
+      var target = this.impl || this;
+      if (target instanceof OriginalElement) {
+        return filterNodeList(elementGetElementsByTagName.call(target, localName));
+      } else if (target instanceof OriginalDocument) {
+        return filterNodeList(documentGetElementsByTagName.call(target, localName));
+      }
+
       var result = new HTMLCollection();
       if (localName === '*')
         return findElements(this, result, matchesEveryThing);
@@ -91,6 +143,13 @@
     },
 
     getElementsByTagNameNS: function(ns, localName) {
+      var target = this.impl || this;
+      if (target instanceof OriginalElement) {
+        return filterNodeList(elementGetElementsByTagNameNS.call(target, ns, localName));
+      } else if (target instanceof OriginalDocument) {
+        return filterNodeList(documentGetElementsByTagNameNS.call(target, ns, localName));
+      }
+
       var result = new HTMLCollection();
 
       if (ns === '') {
